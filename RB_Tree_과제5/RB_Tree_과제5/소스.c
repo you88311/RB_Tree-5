@@ -1,7 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
-
+#include <windows.h>
+#include <tchar.h>
+#include <strsafe.h>
+#include <wchar.h>
+#include <string.h>
 #define RED 1
 #define BLACK 2
 
@@ -389,6 +393,8 @@ void RB_Tree_print(RB_Tree* self, Node* tree, int level)
 
 void left_RB_Tree_height(RB_Tree* self, Node* tree, int* left_bh)
 {
+	if (tree == self->nillnode)
+		return;
 	if (tree->color == BLACK)
 	{
 		(*left_bh) += 1;
@@ -402,6 +408,8 @@ void left_RB_Tree_height(RB_Tree* self, Node* tree, int* left_bh)
 }
 void right_RB_Tree_height(RB_Tree* self, Node* tree, int* right_bh)
 {
+	if (tree == self->nillnode)
+		return;
 	if (tree->color == BLACK)
 	{
 		(*right_bh) += 1;
@@ -424,11 +432,11 @@ void RB_inorder(RB_Tree* self, Node* tree, int* total, int* bn_count)
 		{
 			if (tree->color == BLACK)
 			{
-				printf("%d[B]", tree->value);
+				printf("%d[B]\n", tree->value);
 			}
 			else
 			{
-				printf("%d[R]", tree->value);
+				printf("%d[R]\n", tree->value);
 			}
 			(*total) += 1; //leaf제외 전체 노드 개수
 			if (tree->color == BLACK)
@@ -440,7 +448,11 @@ void RB_inorder(RB_Tree* self, Node* tree, int* total, int* bn_count)
 	}
 }
 
-
+void WCharToChar(char* pstrDest, const wchar_t* pwstrSrc) /*wchar을 char형으로 변환 함수*/
+{
+	int nLen = (int)wcslen(pwstrSrc);
+	wcstombs(pstrDest, pwstrSrc, nLen + 1);
+}
 
 int main(void)
 {
@@ -452,55 +464,120 @@ int main(void)
 	int right_bh = 0;
 	int insert_count = 0; //insert 횟수
 	RB_Tree* self = RB_Tree_alloc(); //RB_tree 선언
-	FILE *fp = fopen("input.txt", "r");
-	while (is_running)
-	{
-		fscanf(fp, "%d", &data);
-		if (data > 0)
-		{
-			insert_count++;
-			tree_insert(node_alloc(data), self, self->root);
-			left_RB_Tree_height(self, self->root, &left_bh);
-			right_RB_Tree_height(self, self->root, &right_bh);
-			if (left_bh != right_bh)
-			{
-				printf("insert한 후 왼쪽 오른쪽 bh가 맞지 않음\n left_bh:%d , right_bh:%d\n", left_bh, right_bh);
-				printf("insert_node:%d\n", data);
-			}
-			left_bh = 0;
-			right_bh = 0;
-		}
-		else if (data < 0)
-		{
-			real_delete_count++; //delete함수에서 만약 node값이 존재하지 않으면 다시 원상태로 복원
-			data = -data;
-			tree_delete(data, self, self->root);
-			left_RB_Tree_height(self, self->root, &left_bh);
-			right_RB_Tree_height(self, self->root, &right_bh);
-			if (left_bh != right_bh)
-			{
-				printf("delete한 후 왼쪽 오른쪽 bh가 맞지 않음\n left_bh:%d , right_bh:%d\n", left_bh, right_bh);
-				printf("delete_node:%d\n", -data);
-				puts("-----------------delete한 후의 bh맞지 않는 트리--------------");
-				RB_Tree_print(self, self->root, 0);
-			}
-			left_bh = 0;
-			right_bh = 0;
+	char real_filename[100] = "input/";
+	char filename[100];
+	int is_EOF = 1;
+	char file_data[100];
+	WIN32_FIND_DATA ffd;
+	TCHAR szDir[MAX_PATH];
+	size_t length_of_arg;
+	HANDLE hFind = INVALID_HANDLE_VALUE;
+	DWORD dwError = 0;
+	FILE* fp = NULL;
+	StringCchCopy(szDir, MAX_PATH, TEXT("./input"));
 
-		}
-		else if (data == 0)
-		{
-			puts("---------Red_Black tree inorder-------");
-			RB_inorder(self, self->root, &total, &bn_count);
-			left_RB_Tree_height(self, self->root, &left_bh);
-			right_RB_Tree_height(self, self->root, &right_bh);
-			puts("");
-			puts("-----------------------------------");
-			printf("total: %d, black_node: %d, bh:%d\n", total, bn_count, right_bh);
-			printf("insert 총 횟수:%d, 실제 delete 횟수:%d, delete하려 했으나 존재하지 않았던 횟수:%d\n", insert_count, real_delete_count, no_exist_delete_count);
-			is_running = 0;
-		}
+	/*--------------------------------------------------------------*/
+	StringCchCat(szDir, MAX_PATH, TEXT("\\*"));
+
+	// Find the first file in the directory.
+
+	hFind = FindFirstFile(szDir, &ffd);
+
+	if (INVALID_HANDLE_VALUE == hFind)
+	{
+		printf("Error: FindFirstFile\n");
+		return dwError;
 	}
-	fclose(fp);
-	return 0;
+
+	// List all the files in the directory with some info about them.
+
+	do
+	{
+		if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+		{
+		}
+		else
+		{
+			_tprintf(TEXT("  %s\n"), ffd.cFileName);
+			WCharToChar(filename, ffd.cFileName);
+			strcat(real_filename, filename);
+			fp = fopen(real_filename, "r");
+/*-----------------여기서부터 redblacktree---------------------------------------------------------------*/
+			while (is_EOF != -1 && is_running)
+			{
+				is_EOF = fscanf(fp, "%s", file_data);
+				if (is_EOF == -1)
+					break;
+				data = atoi(file_data);
+				if (data > 0)
+				{
+					insert_count++;
+					tree_insert(node_alloc(data), self, self->root);
+					left_RB_Tree_height(self, self->root, &left_bh);
+					right_RB_Tree_height(self, self->root, &right_bh);
+					if (left_bh != right_bh)
+					{
+						printf("insert한 후 왼쪽 오른쪽 bh가 맞지 않음\n left_bh:%d , right_bh:%d\n", left_bh, right_bh);
+						printf("insert_node:%d\n", data);
+					}
+					left_bh = 0;
+					right_bh = 0;
+				}
+				else if (data < 0)
+				{
+					real_delete_count++; //delete함수에서 만약 node값이 존재하지 않으면 다시 원상태로 복원
+					data = -data;
+					tree_delete(data, self, self->root);
+					left_RB_Tree_height(self, self->root, &left_bh);
+					right_RB_Tree_height(self, self->root, &right_bh);
+					if (left_bh != right_bh)
+					{
+						printf("delete한 후 왼쪽 오른쪽 bh가 맞지 않음\n left_bh:%d , right_bh:%d\n", left_bh, right_bh);
+						printf("delete_node:%d\n", -data);
+						puts("-----------------delete한 후의 bh맞지 않는 트리--------------");
+						RB_Tree_print(self, self->root, 0);
+					}
+					left_bh = 0;
+					right_bh = 0;
+
+				}
+				else if (data == 0)
+				{
+					puts("---------Red_Black tree inorder-------");
+					RB_inorder(self, self->root, &total, &bn_count);
+					left_RB_Tree_height(self, self->root, &left_bh);
+					right_RB_Tree_height(self, self->root, &right_bh);
+					puts("");
+					puts("-----------------------------------");
+					printf("total: %d, black_node: %d, bh:%d\n", total, bn_count, right_bh);
+					printf("insert 총 횟수:%d, 실제 delete 횟수:%d, delete하려 했으나 존재하지 않았던 횟수:%d\n\n", insert_count, real_delete_count, no_exist_delete_count);
+					is_running = 0;
+				}
+			}
+			//만약 다른 파일 있으면 다시 시작;
+			is_running = 1;
+			self = RB_Tree_alloc(); //RB_tree 선언
+			is_EOF = 1;
+			bn_count = 0; //number of black node
+			total = 0;
+			left_bh = 0;
+			right_bh = 0;
+			insert_count = 0; //insert 횟수
+			real_delete_count = 0; //실제 delete횟수
+			no_exist_delete_count = 0; //delete하려 했으나 노드가 존재하지 않아 delete하지 못한 횟수
+
+			fclose(fp);
+			strcpy(real_filename, "input/");
+		}
+	} while (FindNextFile(hFind, &ffd) != 0);
+
+	dwError = GetLastError();
+	if (dwError != ERROR_NO_MORE_FILES)
+	{
+		printf("Error: FindFirstFile\n");
+	}
+
+	FindClose(hFind);
+	return dwError;
+	/*--------------------------------------------------------------*/
 }
